@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   const serverUrl = request.url.split("/api/")[0];
   const phoneNumber = queryMap["From"];
   const companionPhoneNumber = queryMap["To"];
+  console.log("queryMap", queryMap);
 
   const identifier = request.url + "-" + (phoneNumber || "anonymous");
   const { success } = await rateLimit(identifier);
@@ -72,16 +73,25 @@ export async function POST(request: Request) {
   const companionName = companionConfig.name;
   const companionModel = companionConfig.llm;
 
-  const response = await fetch(`${serverUrl}/api/${companionModel}`, {
-    body: JSON.stringify({
-      prompt,
-      isText: true,
-      userId: users[0].id,
-      userName: users[0].firstName,
-    }),
-    method: "POST",
-    headers: { "Content-Type": "application/json", name: companionName },
-  });
+  console.log("serverUrl", serverUrl);
+
+  // We get an error if we try to use https with localhost
+  const isLocalhost = serverUrl.includes("localhost");
+  const protocol = isLocalhost ? "http" : "https";
+
+  const response = await fetch(
+    `${serverUrl.replace("https", protocol)}/api/${companionModel}`,
+    {
+      body: JSON.stringify({
+        prompt,
+        isText: true,
+        userId: users[0].id,
+        userName: users[0].firstName,
+      }),
+      method: "POST",
+      headers: { "Content-Type": "application/json", name: companionName },
+    }
+  );
 
   const responseText = await response.text();
 

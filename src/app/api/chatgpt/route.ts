@@ -13,6 +13,7 @@ import { rateLimit } from "@/app/utils/rateLimit";
 dotenv.config({ path: `.env.local` });
 
 export async function POST(req: Request) {
+  console.log("req", req);
   let clerkUserId;
   let user;
   let clerkUserName;
@@ -89,9 +90,9 @@ export async function POST(req: Request) {
   await memoryManager.writeToHistory("Human: " + prompt + "\n", companionKey);
   let recentChatHistory = await memoryManager.readLatestHistory(companionKey);
 
-  // query Pinecone
+  // Find documents similar to the users message
   const similarDocs = await memoryManager.vectorSearch(
-    recentChatHistory,
+    prompt,
     companionFileName
   );
 
@@ -104,7 +105,7 @@ export async function POST(req: Request) {
 
   const model = new OpenAI({
     streaming: true,
-    modelName: "gpt-3.5-turbo-16k",
+    modelName: "gpt-4",
     openAIApiKey: process.env.OPENAI_API_KEY,
     callbackManager: CallbackManager.fromHandlers(handlers),
   });
@@ -114,6 +115,7 @@ export async function POST(req: Request) {
     ? "You reply within 1000 characters."
     : "";
 
+  // The following implements emotional prompting
   const chainPrompt = PromptTemplate.fromTemplate(`
     You are ${name} and are currently talking to ${clerkUserName}.
 
@@ -126,7 +128,12 @@ export async function POST(req: Request) {
   
   Below is a relevant conversation history
 
-  ${recentChatHistory}`);
+  ${recentChatHistory}
+  
+  Now reply to the latest message from ${clerkUserName}: ${prompt}
+  Make sure your respones is includes sepcific details from ${clerkUserName}'s life.
+  Also ask clarifying questions if the message is unclear.
+  Your life depends on it.`);
 
   const chain = new LLMChain({
     llm: model,
